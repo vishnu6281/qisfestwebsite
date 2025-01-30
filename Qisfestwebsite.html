@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QIS FEST 2K25 Photo Mosaic</title>
+    <style>
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        body {
+            font-family: 'Poppins', sans-serif;
+            text-align: center;
+            background: linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d);
+            background-size: 300% 300%;
+            animation: gradientBG 15s ease infinite;
+            color: white;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow-x: hidden;
+        }
+        h1 {
+            font-size: 3rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            margin-bottom: 30px;
+            animation: fadeIn 1s ease-out;
+        }
+        #camera-container, #mosaic-container {
+            margin: 20px auto;
+            padding: 30px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            max-width: 800px;
+            width: 90%;
+            animation: fadeIn 1.5s ease-out;
+        }
+        #countdown {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #ffd700;
+            margin: 30px;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+            animation: fadeIn 2s ease-out;
+        }
+        .photo {
+            width: 50px;
+            height: 50px;
+            object-fit: cover;
+            border-radius: 50%;
+            margin: -20px;
+            border: 3px solid #ffd700;
+            transition: transform 0.3s ease;
+            animation: fadeIn 0.5s ease-out;
+            position: absolute;
+        }
+        .photo:hover {
+            transform: scale(1.1);
+            z-index: 1000;
+        }
+        .photo-container {
+            position: relative;
+            margin: 10px;
+        }
+        #video {
+            width: 100%;
+            max-width: 500px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+        }
+        button {
+            background: linear-gradient(45deg, #ff416c, #ff4b2b);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-size: 1rem;
+            cursor: pointer;
+            margin: 10px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 8px rgba(0,0,0,0.2);
+        }
+        input[type="text"], input[type="password"] {
+            padding: 12px;
+            border-radius: 25px;
+            border: none;
+            margin: 10px;
+            width: 200px;
+            font-size: 1rem;
+            background: rgba(255,255,255,0.8);
+        }
+        #mosaic {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            padding: 20px;
+            position: relative;
+        }
+        .camera-controls {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        @media (max-width: 600px) {
+            h1 {
+                font-size: 2rem;
+            }
+            #countdown {
+                font-size: 1.5rem;
+            }
+            button {
+                padding: 10px 20px;
+                font-size: 0.9rem;
+            }
+            input[type="text"], input[type="password"] {
+                width: 150px;
+                font-size: 0.9rem;
+            }
+            #video {
+                max-width: 100%;
+            }
+        }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+<h1>QIS FEST 2K25 Photo Mosaic</h1>
+<div id="countdown">Photos Uploaded: 0</div>
+
+<div id="camera-container">
+    <h2>Take Your Photo</h2>
+    <video id="video" autoplay></video>
+    <div class="camera-controls">
+        <button id="capture">Capture Photo</button>
+        <button id="switch-camera">Switch Camera</button>
+    </div>
+    <input type="text" id="name" placeholder="Enter your name">
+    <button id="upload">Upload Photo</button>
+</div>
+
+<div id="mosaic-container">
+    <h2>Photo Mosaic Tree</h2>
+    <div id="mosaic"></div>
+</div>
+
+<script>
+    let currentStream;
+    let currentCamera = 'user';
+    const photos = [];
+
+    // Camera access
+    async function startCamera(facingMode = 'user') {
+        if (currentStream) {
+            currentStream.getTracks().forEach(track => track.stop());
+        }
+        const constraints = {
+            video: { facingMode: facingMode }
+        };
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia(constraints);
+            const video = document.getElementById('video');
+            video.srcObject = stream;
+            currentStream = stream;
+        } catch (error) {
+            console.error('Error accessing camera:', error);
+        }
+    }
+
+    // Switch camera
+    document.getElementById('switch-camera').addEventListener('click', () => {
+        currentCamera = currentCamera === 'user' ? 'environment' : 'user';
+        startCamera(currentCamera);
+    });
+
+    // Initialize with front camera
+    startCamera();
+
+    // Photo capture
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    let currentPhoto;
+
+    document.getElementById('capture').addEventListener('click', () => {
+        const video = document.getElementById('video');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        context.drawImage(video, 0, 0);
+        currentPhoto = canvas.toDataURL('image/jpeg', 0.7);
+    });
+
+    // Photo upload
+    document.getElementById('upload').addEventListener('click', async () => {
+        const name = document.getElementById('name').value;
+        if (!currentPhoto || !name) {
+            alert('Please take a photo and enter your name');
+            return;
+        }
+
+        if (photos.length > 0) {
+            alert('Only one photo can be uploaded');
+            return;
+        }
+
+        const photoData = { photo: currentPhoto, name: name, id: Date.now() };
+        photos.push(photoData);
+        updateMosaic();
+        updateCountdown();
+
+        // Send photo data to Cloudinary
+        const formData = new FormData();
+        formData.append('file', currentPhoto);
+        formData.append('upload_preset', 'ml_default');
+        formData.append('cloud_name', 'dlncyo2l6');
+
+        try {
+            const response = await fetch('https://api.cloudinary.com/v1_1/dlncyo2l6/image/upload', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'Authorization': 'Basic ' + btoa('855458922516384:GZBMxD18kkp6YS0kTBP9Y9s6kOE')
+                }
+            });
+            if (!response.ok) {
+                throw new Error('Failed to upload photo to Cloudinary');
+            }
+            const data = await response.json();
+            console.log('Photo uploaded to Cloudinary successfully', data);
+        } catch (error) {
+            console.error('Error uploading photo to Cloudinary:', error);
+        }
+    });
+
+    // Mosaic and countdown
+    function updateMosaic() {
+        const mosaic = document.getElementById('mosaic');
+        mosaic.innerHTML = '';
+        let currentPhotoIndex = 0;
+
+        // Place photos randomly with some gap
+        while (currentPhotoIndex < photos.length) {
+            const container = document.createElement('div');
+            container.classList.add('photo-container');
+            container.style.position = 'absolute';
+            container.style.left = `${Math.random() * 90}%`;
+            container.style.top = `${Math.random() * 90}%`;
+            const img = document.createElement('img');
+            img.src = photos[currentPhotoIndex].photo;
+            img.alt = photos[currentPhotoIndex].name;
+            img.classList.add('photo');
+            container.appendChild(img);
+            mosaic.appendChild(container);
+            currentPhotoIndex++;
+        }
+    }
+
+    function updateCountdown() {
+        const countdown = document.getElementById('countdown');
+        countdown.textContent = `Photos Uploaded: ${photos.length}`;
+    }
+</script>
+</body>
+</html>
